@@ -12,8 +12,31 @@ const ioServer = socketIO(server, {
   }
 });
 
+const clients = new Set();
+
 let katagoProcess;
 let serverSocket = null;
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function handleDisconnect(socket) {
+  console.log('Client disconnected, waiting for reconnection...');
+
+  // Give time to reconnect
+  await sleep(5 * 60 * 1000);
+
+  // Stop Katago process if nobody has reconnected
+  if (ioServer.engine.clientsCount === 0) {
+    // Kill the Katago process
+    if (katagoProcess) {
+      console.log("Killing KataGo");
+      katagoProcess.kill();
+      katagoProcess = null;
+    }
+  }
+}
 
 ioServer.on('connection', socket => {
   console.log('Client connected');
@@ -21,15 +44,7 @@ ioServer.on('connection', socket => {
 
   socket.on('disconnect', () => {
     console.log('Client disconnected');
-    // Stop Katago process when the last client disconnects
-    if (ioServer.engine.clientsCount === 0) {
-      // Kill the Katago process
-      if (katagoProcess) {
-        console.log("Killing KataGo");
-        katagoProcess.kill();
-        katagoProcess = null;
-      }
-    }
+    handleDisconnect(socket);
   });
 
   socket.on('connectToServer', (data) => {
