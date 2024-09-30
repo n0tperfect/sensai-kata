@@ -1,128 +1,161 @@
-const http = require('http');
-const socketIO = require('socket.io');
-const io = require("socket.io-client");
+// app.js
+
+const socketIOClient = require('socket.io-client');
 const { spawn } = require('child_process');
 const { FeedbackTransformer } = require('./feedback');
+const { Command } = require('commander');
+const fs = require('fs');
+const path = require('path');
 
-const server = http.createServer();
-const ioServer = socketIO(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
+// Initialize commander for command-line arguments
+const program = new Command();
+
+// Define command-line options
+program
+  .option('-c, --config <path>', 'Path to config file', 'config.json')
+  .option('-u, --username <username>', 'Username to use for server connection')
+  .option('-s, --server-url <url>', 'Server URL to connect to');
+
+program.parse(process.argv);
+
+// Function to load configuration from file
+function loadConfig(configPath) {
+  const absolutePath = path.resolve(configPath);
+  if (!fs.existsSync(absolutePath)) {
+    console.error(`Config file not found at ${absolutePath}`);
+    process.exit(1);
   }
-});
 
-const clients = new Set();
+  let config = {};
 
-let katagoProcess;
+  // Determine file extension
+  const ext = path.extname(absolutePath).toLowerCase();
+
+  if (ext === '.json') {
+    config = require(absolutePath);
+  } else if (ext === '.yaml' || ext === '.yml') {
+    const yaml = require('js-yaml');
+    const fileContents = fs.readFileSync(absolutePath, 'utf8');
+    config = yaml.load(fileContents);
+  } else {
+    console.error('Unsupported config file format. Use JSON or YAML.');
+    process.exit(1);
+  }
+
+  return config;
+}
+
+// Load configuration
+const config = loadConfig(program.opts().config);
+
+// Override config with command-line arguments if provided
+const serverUrl = program.opts().serverUrl || config.serverUrl;
+const username = program.opts().username || config.username;
+
+if (!serverUrl || !username) {
+  console.error('Server URL and username must be provided either in the config file or via command-line arguments.');
+  process.exit(1);
+}
+
+console.log(`Using server URL: ${serverUrl}`);
+console.log(`Using username: ${username}`);
+
+// Initialize variables
+let katagoProcess = null;
 let serverSocket = null;
+let feedbackTransformer = null;
 
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
+// Start the KataGo process
+function startKatagoProcess() {
+  if (!katagoProcess) {
+    katagoProcess = spawn('katago/katago.exe', ['analysis', '-config', 'katago/analysis_example.cfg', '-model', 'katago/models/kata1-b18c384nbt.bin.gz']);
+    feedbackTransformer = new FeedbackTransformer();
 
-async function handleDisconnect(socket) {
-  console.log('Client disconnected, waiting for reconnection...');
+    let buffer = '';
 
-  // Give time to reconnect
-  await sleep(5 * 60 * 1000);
+    katagoProcess.stdout.on('data', data => {
+      const katagoData = data.toString();
+      buffer += katagoData;
 
-  // Stop Katago process if nobody has reconnected
-  if (ioServer.engine.clientsCount === 0) {
-    // Kill the Katago process
-    if (katagoProcess) {
-      console.log("Killing KataGo");
-      katagoProcess.kill();
+      let completedResponses = buffer.split("\n");
+      buffer = completedResponses.pop();
+
+      completedResponses.forEach(response => {
+        const moveData = feedbackTransformer.katago2moves(response);
+        const feedback = feedbackTransformer.calculateFeedback(moveData);
+        console.log(`feedback: ${JSON.stringify(feedback)}`);
+        if (serverSocket) {
+          serverSocket.emit('katagoResponse', feedback);
+        }
+      });
+    });
+
+    katagoProcess.stderr.on('data', err => {
+      console.error(`Katago error: ${err}`);
+    });
+
+    katagoProcess.on('close', code => {
+      console.log(`Katago process exited with code ${code}`);
       katagoProcess = null;
-    }
+    });
+
+    console.log('KataGo process started');
   }
 }
 
-ioServer.on('connection', socket => {
-  console.log('Client connected');
-  socket.emit("connected");
+// Establish connection to the remote server
+function connectToRemoteServer() {
+  if (serverSocket) {
+    console.log(`Server Socket already exists. Disconnecting the old one.`);
+    serverSocket.disconnect();
+  }
 
-  socket.on('disconnect', () => {
-    console.log('Client disconnected');
-    handleDisconnect(socket);
+  // Establish a new socket connection
+  const newSocket = socketIOClient(serverUrl);
+
+  serverSocket = newSocket;
+
+  newSocket.on('connect', () => {
+    console.log(`Connected to remote server at ${serverUrl}`);
+
+    // Send registration message
+    newSocket.emit('registerKata', { user: username });
+    console.log(`Sent register message to server with username: ${username}`);
+
+    // Start KataGo process upon successful connection
+    startKatagoProcess();
   });
 
-  socket.on('connectToServer', (data) => {
-    const { user, url } = data;
+  newSocket.on('disconnect', () => {
+    console.log('Disconnected from remote server');
+    serverSocket = null;
+  
+    // Attempt to reconnect after a delay
+    setTimeout(() => {
+      console.log('Attempting to reconnect to remote server...');
+      connectToRemoteServer();
+    }, 5000); // Retry after 5 seconds
+  });
+  
 
-    if (serverSocket) {
-      console.log(`Server Socket already exists. Disconnecting the old one.`);
-      serverSocket.disconnect();
+  // Handle messages from the remote server
+  newSocket.on('registerOK', () => {
+    console.log('Registration with remote server successful');
+  });
+
+  newSocket.on('queryKatago', (query) => {
+    if (katagoProcess) {
+      katagoProcess.stdin.write(`${query}\n`);
+      console.log(`Passing query to KataGo: ${query}`);
+    } else {
+      newSocket.emit('katagoNotRunning');
     }
-
-    // Establish a new socket connection
-    const newSocket = io(url);
-
-    serverSocket = newSocket;
-    // console.log(serverSocket);
-    newSocket.on('connected', () => {
-      console.log(`Kata socket ${user} connected to ${url}`);
-    });
-
-    newSocket.on('disconnect', () => {
-      console.log(`Kata server socket ${user} disconnected`);
-      serverSocket = null;
-    });
-
-    // Handle messages from the secondary socket
-    newSocket.on('registerOK', () => {
-      socket.emit('serverOK');
-    });
-
-    newSocket.on('initKatago', () => {
-      if (!katagoProcess) {
-        katagoProcess = spawn('katago/katago.exe', ['analysis', '-config', 'katago/analysis_example.cfg', '-model', 'katago/models/kata1-b18c384nbt.bin.gz']);
-        feedbackTransformer = new FeedbackTransformer();
-
-        let buffer = '';
-    
-        katagoProcess.stdout.on('data', data => {
-          const katagoData = data.toString();
-          buffer += katagoData;
-          // console.log(`Katago response: ${data}`);
-
-          let completedResponses = buffer.split("\n");
-          buffer = completedResponses.pop();
-
-          completedResponses.forEach(response => {
-            const moveData = feedbackTransformer.katago2moves(response);
-            const feedback = feedbackTransformer.calculateFeedback(moveData);
-            console.log(`feedback: ${JSON.stringify(feedback)}`);
-            newSocket.emit('katagoResponse', feedback);
-          });          
-        });
-      
-        katagoProcess.stderr.on('data', err => {
-          console.error(`Katago error: ${err}`);
-        });
-      
-        katagoProcess.on('close', code => {
-          console.log(`Katago process exited with code ${code}`);
-        });
-      }
-    });
-
-    newSocket.on('queryKatago', (query) => {
-      if (katagoProcess) {
-        katagoProcess.stdin.write(`${query}\n`);
-        console.log(`passing query to katago: ${query}`);
-      } else {
-        newSocket.emit('katagoNotRunning');
-      }
-    });
-
-    console.log(`Finished setting up server socket`);
-
-    newSocket.emit('registerKata', { user: user });
-    console.log(`sent register message to server`);
   });
-});
 
-server.listen(3000, () => {
-  console.log('Server running on port 3000');
-});
+  console.log(`Finished setting up server socket`);
+}
+
+// Main execution flow
+(function main() {
+  connectToRemoteServer();
+})();
