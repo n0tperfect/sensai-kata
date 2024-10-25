@@ -1,6 +1,6 @@
 # sensai-kata
 
-This project offers an experimental client that serves as an interface between [KataGo](https://github.com/lightvector/KataGo) and [sensaigo.com](sensaigo.com).
+This project offers an experimental client that serves as an interface between [KataGo](https://github.com/lightvector/KataGo) and [sensaigo.com](http://sensaigo.com).
 In order to use the live-feedback features of sensaigo.com, you need to connect a KataGo instance to the server first.
 
 **Warning**
@@ -39,7 +39,7 @@ To get started with SensaiGo, follow the instructions below to download and set 
 
 ## Usage
 
-Before using the client, you need to register a user at [sensaigo.com](sensaigo.com).
+Before using the client, you need to register a user at [sensaigo.com](http://sensaigo.com).
 
 To run the program, use the following command:
 
@@ -51,7 +51,7 @@ node kata_server.js
 node kata_server.js -u username
 ```
 
-This will start KataGo and a process that connects to [sensaigo.com](sensaigo.com) and registers this KataGo instance to your username.
+This will start KataGo and a process that connects to [sensaigo.com](http://sensaigo.com) and registers this KataGo instance to your username.
 The process will then listen to analyze requests coming from the server and communicate them to KataGo.
 
 Only one of both players needs to have a KataGo instance connected for this to work.

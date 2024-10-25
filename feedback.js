@@ -26,10 +26,10 @@ class FeedbackTransformer {
 
     katago2moves(katagoData) {
         const moveList = [];
-        console.log(`parsing JSON: ${katagoData}`);
+        // console.log(`parsing JSON: ${katagoData}`);
         const movesData = JSON.parse(katagoData);
 
-        console.log(`moves data: ${JSON.stringify(movesData)}`);
+        // console.log(`moves data: ${JSON.stringify(movesData)}`);
 
         movesData.moveInfos.forEach(moveInfo => {
             const { move, visits, winrate, scoreLead } = moveInfo;
@@ -45,7 +45,7 @@ class FeedbackTransformer {
 
     calculateFeedback(moveData) {
         const moveList = moveData.moveList;
-        console.log(`${moveList}`);
+        // console.log(`${moveList}`);
         moveList.sort((a, b) => b.visits - a.visits);
 
         let bestWinrateLead = 0;

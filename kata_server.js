@@ -83,7 +83,7 @@ function startKatagoProcess() {
       completedResponses.forEach(response => {
         const moveData = feedbackTransformer.katago2moves(response);
         const feedback = feedbackTransformer.calculateFeedback(moveData);
-        console.log(`feedback: ${JSON.stringify(feedback)}`);
+        console.log(`updating feedback: ${JSON.stringify(feedback)}`);
         if (serverSocket) {
           serverSocket.emit('katagoResponse', feedback);
         }
@@ -129,14 +129,14 @@ function connectToRemoteServer() {
   newSocket.on('disconnect', () => {
     console.log('Disconnected from remote server');
     serverSocket = null;
-  
+
     // Attempt to reconnect after a delay
     setTimeout(() => {
       console.log('Attempting to reconnect to remote server...');
       connectToRemoteServer();
     }, 5000); // Retry after 5 seconds
   });
-  
+
 
   // Handle messages from the remote server
   newSocket.on('registerOK', () => {
@@ -146,7 +146,7 @@ function connectToRemoteServer() {
   newSocket.on('queryKatago', (query) => {
     if (katagoProcess) {
       katagoProcess.stdin.write(`${query}\n`);
-      console.log(`Passing query to KataGo: ${query}`);
+      // console.log(`Passing query to KataGo: ${query}`);
     } else {
       newSocket.emit('katagoNotRunning');
     }
