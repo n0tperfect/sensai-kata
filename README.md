@@ -3,7 +3,8 @@
 This project offers an experimental client that serves as an interface between [KataGo](https://github.com/lightvector/KataGo) and [sensaigo.com](sensaigo.com).
 In order to use the live-feedback features of sensaigo.com, you need to connect a KataGo instance to the server first.
 
-*Warning*
+**Warning**
+
 The current code is in an early experimental state. Use at your own risk.
 
 ## Table of Contents
@@ -68,11 +69,12 @@ KataGo uses the [analysis_example.cfg](katago/analysis_example.cfg) configuratio
 
 To adjust the settings to make them perfect for your machine, please consult the [KataGo documentation](katago/README.txt).
 
-*Quick tip*
-If there is too much delay between moves and feedback, reduce *maxVisits* value (default=1000) in the config file.
+**Quick tip**
+
+If there is too much delay between moves and feedback, reduce **maxVisits** value (default=1000) in the config file.
 
 It is also possible to use your own KataGo that is already configured on your machine.
-In this case you'll have to adjust the command to run the program in [kata_server.js](kata_server.js).
+In this case you'll have to adjust the command to run the program in [kata_server.js](kata_server.js#L71).
 
 ## License
 
