@@ -3,6 +3,8 @@
 This project offers an experimental client that serves as an interface between [KataGo](https://github.com/lightvector/KataGo) and [sensaigo.com](http://sensaigo.com).
 In order to use the live-feedback features of sensaigo.com, you need to connect a KataGo instance to the server first.
 
+I have only used and tested the client on Windows. While the project could theoretically be run on MacOS or Linux, I have never tested this.
+
 **Warning**
 
 The current code is in an early experimental state. Use at your own risk.
