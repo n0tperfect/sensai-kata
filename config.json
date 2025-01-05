@@ -1,5 +1,8 @@
 {
-    "serverUrl": "http://sensaigo.com:5000",
-    "username": "your-username"
-  }
+  "serverUrl": "http://sensaigo.com:5000",
+  "username": "your-username",
+  "pools": ["public"],
+  "visits": 1000,
+  "concurrencyLimit": 5
+}
   

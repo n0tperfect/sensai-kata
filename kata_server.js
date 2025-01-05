@@ -14,7 +14,10 @@ const program = new Command();
 program
   .option('-c, --config <path>', 'Path to config file', 'config.json')
   .option('-u, --username <username>', 'Username to use for server connection')
-  .option('-s, --server-url <url>', 'Server URL to connect to');
+  .option('-s, --server-url <url>', 'Server URL to connect to')
+  .option('-v, --visits <visits>', 'max visits')
+  .option('-l, --concurrency-limit <limit>', 'concurrency limit')
+  .option('-p, --pools <pools>', 'pools');
 
 program.parse(process.argv);
 
@@ -51,6 +54,9 @@ const config = loadConfig(program.opts().config);
 // Override config with command-line arguments if provided
 const serverUrl = program.opts().serverUrl || config.serverUrl;
 const username = program.opts().username || config.username;
+const visits = program.opts().visits || config.visits;
+const concurrencyLimit = program.opts().concurrencyLimit || config.concurrencyLimit;
+const pools = program.opts().pools || config.pools;
 
 if (!serverUrl || !username) {
   console.error('Server URL and username must be provided either in the config file or via command-line arguments.');
@@ -111,7 +117,7 @@ function connectToRemoteServer() {
   }
 
   // Establish a new socket connection
-  const newSocket = socketIOClient(serverUrl);
+  const newSocket = socketIOClient(`${serverUrl}/katago`);
 
   serverSocket = newSocket;
 
@@ -119,8 +125,8 @@ function connectToRemoteServer() {
     console.log(`Connected to remote server at ${serverUrl}`);
 
     // Send registration message
-    newSocket.emit('registerKata', { user: username });
-    console.log(`Sent register message to server with username: ${username}`);
+    newSocket.emit('registerKata', { owner: username, pools: pools, visits: visits, concurrencyLimit: concurrencyLimit });
+    console.log(`Sent register message to server with: ${username}, ${pools}, ${visits}, ${concurrencyLimit}`);
 
     // Start KataGo process upon successful connection
     startKatagoProcess();
