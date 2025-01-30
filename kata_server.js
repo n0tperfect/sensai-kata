@@ -158,6 +158,27 @@ function connectToRemoteServer() {
     }
   });
 
+  newSocket.on('stopProcessing', () => {
+    console.log('Received stopProcessing command from server. Shutting down...');
+
+    // 1) Kill the KataGo process if it's running
+    if (katagoProcess) {
+      katagoProcess.kill(); // or katagoProcess.stdin.end()
+      katagoProcess = null;
+      console.log('KataGo process killed');
+    }
+
+    // 2) Disconnect from the server
+    newSocket.disconnect();
+    console.log('Disconnected from remote server');
+
+    // 3) Exit the script
+    // Add a small delay if you want logs to flush before exiting
+    setTimeout(() => {
+      process.exit(0);
+    }, 100);
+  });
+
   console.log(`Finished setting up server socket`);
 }
 
